@@ -58,7 +58,7 @@ Ao iniciar, a aplicação importa automaticamente os dados do arquivo `movielist
 ### Pré-requisitos para os Testes
 Os testes de integração estão localizados em `src/test/java` e verificam o comportamento da aplicação em diversos cenários. Os arquivos CSV de teste estão localizados em `src/test/resources`.
 
-Durante os testes, o perfil `test` é ativado e configura um banco de dados H2 em memória, conforme definido em `src/test/resources/application-test.properties`.
+Durante os testes, o perfil `test` é ativado.
 
 ### Executando os Testes
 Para executar todos os testes (unitários e de integração), utilize o comando:
