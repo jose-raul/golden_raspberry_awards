@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import com.desafio.outsera.dto.MovieDTO;
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -15,10 +14,9 @@ public class CsvLineParser {
 
     private static final Logger logger = LoggerFactory.getLogger(CsvLineParser.class);
 
-	
-    private static final int REQUIRED_FIELD_COUNT = 4; // year, title, studios, producers (winner é opcional)
-    private static final String PRODUCER_SPLIT_REGEX = ",|\\s*and\\s*";
-    private static final String STUDIO_SPLIT_REGEX = ",|\\s*and\\s*";
+    private static final int REQUIRED_FIELD_COUNT = 4;
+    private static final String PRODUCER_SPLIT_REGEX = ",\\s+and\\s+|,\\s*|\\s+and\\s+|\\s*&\\s*";
+    private static final String STUDIO_SPLIT_REGEX = ",| and ";
 
     public Optional<MovieDTO> parseLine(String[] fields, int lineNumber) {
         if (isInvalidLine(fields)) {
@@ -27,7 +25,7 @@ public class CsvLineParser {
         }
 
         try {
-            int year = parseYear(fields[0], lineNumber);
+            int year = Integer.parseInt(fields[0].trim());
             String title = fields[1].trim();
             String studiosField = fields[2];
             String producersField = fields[3];
@@ -53,23 +51,6 @@ public class CsvLineParser {
                fields[3].trim().isEmpty();
     }
 
-    private int parseYear(String yearField, int lineNumber) {
-        try {
-            int year = Integer.parseInt(yearField.trim());
-            int currentYear = LocalDateTime.now().getYear();
-
-            if (year > currentYear) {
-                logger.error("Erro na linha {}: Ano de lançamento superior ao ano atual.", lineNumber);
-                throw new NumberFormatException("Ano inválido");
-            }
-
-            return year;
-        } catch (NumberFormatException e) {
-            logger.error("Erro ao converter o ano na linha {}: {}", lineNumber, e.getMessage());
-            throw e;
-        }
-    }
-
     private List<String> parseStudios(String studiosField) {
         return Arrays.stream(studiosField.split(STUDIO_SPLIT_REGEX))
                      .map(String::trim)
@@ -78,10 +59,19 @@ public class CsvLineParser {
     }
 
     private List<String> parseProducers(String producersField) {
-        return Arrays.stream(producersField.split(PRODUCER_SPLIT_REGEX))
+        String preprocessed = preprocessProducers(producersField);
+        return Arrays.stream(preprocessed.split(PRODUCER_SPLIT_REGEX))
                      .map(String::trim)
                      .filter(name -> !name.isEmpty())
                      .collect(Collectors.toList());
+    }
+
+    private String preprocessProducers(String producers) {
+        // Inserir espaço antes de 'and' quando estiver colado à palavra anterior
+        String preprocessed = producers.replaceAll("(?i)(\\S)(and\\b)", "$1 and");
+        // Inserir espaço depois de 'and' quando estiver colado à palavra seguinte
+        preprocessed = preprocessed.replaceAll("(?i)(\\band)(\\S)", "and $2");
+        return preprocessed;
     }
 
     private boolean parseWinner(String winnerField) {

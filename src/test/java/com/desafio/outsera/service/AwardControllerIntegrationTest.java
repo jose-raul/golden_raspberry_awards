@@ -1,115 +1,89 @@
 package com.desafio.outsera.service;
 
-import static org.hamcrest.Matchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.boot.test.web.server.LocalServerPort;
 
 
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
+import com.desafio.outsera.dto.AwardIntervalDTO;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
-@ActiveProfiles("test")
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class AwardControllerIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private static final String HOST = "http://localhost:";
+
+    @LocalServerPort
+    private int port;
 
     @Autowired
-    private CsvImportService csvImportService;
-    
-    @Test
-    void testGetProducerWithMaxMinAwardIntervals_MultipleWinners() throws Exception {
-        InputStream csvInputStream = getClass().getResourceAsStream("/test-data-multiple-winners.csv");
-        csvImportService.importCsv(csvInputStream);
-
-        mockMvc.perform(get("/award/intervals"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.min", hasSize(1)))
-        .andExpect(jsonPath("$.max", hasSize(2)))
-        .andExpect(jsonPath("$.min[0].producer", is("Producer 1")))
-        .andExpect(jsonPath("$.min[0].interval", is(1)))
-        .andExpect(jsonPath("$.min[0].previousWin", is(2000)))
-        .andExpect(jsonPath("$.min[0].followingWin", is(2001)))
-        .andExpect(jsonPath("$.max[0].producer", is("Producer 2")))
-        .andExpect(jsonPath("$.max[0].interval", is(5)))
-        .andExpect(jsonPath("$.max[0].previousWin", is(2005)))
-        .andExpect(jsonPath("$.max[0].followingWin", is(2010)))
-        .andExpect(jsonPath("$.max[1].producer", is("Producer 2")))
-        .andExpect(jsonPath("$.max[1].interval", is(5)))
-        .andExpect(jsonPath("$.max[1].previousWin", is(2010)))
-        .andExpect(jsonPath("$.max[1].followingWin", is(2015)));
-    }
+    private TestRestTemplate restTemplate;
 
     @Test
-    void testGetProducerWithMaxMinAwardIntervals_SingleWinner() throws Exception {
-        InputStream csvInputStream = getClass().getResourceAsStream("/test-data-single-winner.csv");
-        csvImportService.importCsv(csvInputStream);
-
-        mockMvc.perform(get("/award/intervals"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.min", hasSize(0)))
-            .andExpect(jsonPath("$.max", hasSize(0)));
-    }
-
-    @Test
-    void testGetProducerWithMaxMinAwardIntervals_SameInterval() throws Exception {
-        InputStream csvInputStream = getClass().getResourceAsStream("/test-data-same-interval.csv");
-        csvImportService.importCsv(csvInputStream);
-
-        mockMvc.perform(get("/award/intervals"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.min", hasSize(3)))
-            .andExpect(jsonPath("$.max", hasSize(3)))
-            .andExpect(jsonPath("$.min[*].interval", everyItem(is(1))))
-            .andExpect(jsonPath("$.max[*].interval", everyItem(is(1))));
+    void testAwardReturnMinAndMaxOnBody() {
+    	ParameterizedTypeReference<Map<String, List<AwardIntervalDTO>>> responseType =
+    	        new ParameterizedTypeReference<Map<String, List<AwardIntervalDTO>>>() {};
+    	        
+    	        
+    	ResponseEntity<Map<String, List<AwardIntervalDTO>>> responseEntity = restTemplate.exchange(
+    	                HOST + port + "/award/intervals",
+    	                HttpMethod.GET,
+    	                null,
+    	                responseType
+    	        );
+    	
+        assertEquals(responseEntity.getStatusCode(), HttpStatus.OK);
+        assertNotNull(responseEntity.getBody());
+        assertNotNull(responseEntity.getBody().get("max"));
+        assertNotNull(responseEntity.getBody().get("min"));            
     }
     
     @Test
-    void testGetProducerWithMaxMinAwardIntervals_VaryingIntervals() throws Exception {
-    	InputStream csvInputStream = getClass().getResourceAsStream("/test-data-varying-intervals.csv");
-        csvImportService.importCsv(csvInputStream);
+    void testAwardReturnMinAndMaxRangeFromDefaultFile() {
+        ParameterizedTypeReference<Map<String, List<AwardIntervalDTO>>> responseType =
+                new ParameterizedTypeReference<Map<String, List<AwardIntervalDTO>>>() {};
 
-        mockMvc.perform(get("/award/intervals"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.min", hasSize(2)))
-            .andExpect(jsonPath("$.max", hasSize(1)))
-            .andExpect(jsonPath("$.min[0].producer", is("Producer 1")))
-            .andExpect(jsonPath("$.min[0].interval", is(2)))
-            .andExpect(jsonPath("$.min[0].previousWin", is(1990)))
-            .andExpect(jsonPath("$.min[0].followingWin", is(1992)))
-            .andExpect(jsonPath("$.min[1].producer", is("Producer 1")))
-            .andExpect(jsonPath("$.min[1].interval", is(2)))
-            .andExpect(jsonPath("$.min[1].previousWin", is(1992)))
-            .andExpect(jsonPath("$.min[1].followingWin", is(1994)))
-            .andExpect(jsonPath("$.max[0].producer", is("Producer 2")))
-            .andExpect(jsonPath("$.max[0].interval", is(10)))
-            .andExpect(jsonPath("$.max[0].previousWin", is(2005)))
-            .andExpect(jsonPath("$.max[0].followingWin", is(2015)));
+        ResponseEntity<Map<String, List<AwardIntervalDTO>>> responseEntity = restTemplate.exchange(
+                HOST + port + "/award/intervals",
+                HttpMethod.GET,
+                null,
+                responseType
+        );
+
+        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertNotNull(responseEntity.getBody());
+        assertNotNull(responseEntity.getBody().get("max"));
+        assertNotNull(responseEntity.getBody().get("min"));
+
+        List<AwardIntervalDTO> minIntervals = responseEntity.getBody().get("min");
+        assertEquals(1, minIntervals.size());
+        AwardIntervalDTO minInterval = minIntervals.get(0);
+        assertEquals("Joel Silver", minInterval.producer());
+        assertEquals(1, minInterval.interval());
+        assertEquals(1990, minInterval.previousWin());
+        assertEquals(1991, minInterval.followingWin());
+
+        List<AwardIntervalDTO> maxIntervals = responseEntity.getBody().get("max");
+        assertEquals(1, maxIntervals.size());
+        AwardIntervalDTO maxInterval = maxIntervals.get(0);
+        assertEquals("Matthew Vaughn", maxInterval.producer());
+        assertEquals(13, maxInterval.interval());
+        assertEquals(2002, maxInterval.previousWin());
+        assertEquals(2015, maxInterval.followingWin());
     }
     
-    @Test
-    void testGetProducerWithMaxMinAwardIntervals_NoWinners() throws Exception {
-    	InputStream csvInputStream = getClass().getResourceAsStream("/test-data-no-winners.csv");
-
-        csvImportService.importCsv(csvInputStream);
-        
-        mockMvc.perform(get("/award/intervals"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.min", hasSize(0)))
-            .andExpect(jsonPath("$.max", hasSize(0)));
-    }
 
 }
 
